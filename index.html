@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <title data-i18n="app_title">আয় ও খরচের হিসাব</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f9d58">
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<select id="language-select">
+  <option value="bn">বাংলা</option>
+  <option value="en">English</option>
+  <option value="ar">عربي</option>
+</select>
+
+<h2 data-i18n="monthly_summary"></h2>
+
+<div class="container">
+
+  <!-- আয় -->
+  <div class="box">
+    <h3 data-i18n="income"></h3>
+    <input id="incomeTitle" type="text" data-placeholder-i18n="income">
+    <input id="incomeAmount" type="number" min="1" placeholder="৳">
+    <button id="addIncomeBtn" data-i18n="add_income"></button>
+
+    <ul id="incomeList"></ul>
+
+    <h4>
+      <span data-i18n="total_income"></span>
+      <span id="totalIncome">0</span>
+    </h4>
+  </div>
+
+  <!-- খরচ -->
+  <div class="box">
+    <h3 data-i18n="expense"></h3>
+    <input id="expenseTitle" type="text" data-placeholder-i18n="expense">
+    <input id="expenseAmount" type="number" min="1" placeholder="৳">
+    <button id="addExpenseBtn" data-i18n="add_expense"></button>
+
+    <ul id="expenseList"></ul>
+
+    <h4>
+      <span data-i18n="total_expense"></span>
+      <span id="totalExpense">0</span>
+    </h4>
+  </div>
+
+</div>
+
+<h2>
+  <span data-i18n="current_balance"></span>
+  <span id="balance">0</span>
+</h2>
+
+<button id="endMonthBtn" data-i18n="end_month"></button>
+<button id="toggleHistoryBtn" data-i18n="view_history"></button>
+
+<div id="history" style="display:none">
+  <h3 data-i18n="history"></h3>
+  <ul id="historyList"></ul>
+</div>
+
+<script src="i18n.js"></script>
+<script src="script.js"></script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/service-worker.js")
+        .then(reg => console.log("Service Worker registered", reg))
+        .catch(err => console.error("SW registration failed", err));
+    });
+  }
+</script>
+
+</body>
+</html>
