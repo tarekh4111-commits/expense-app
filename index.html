@@ -2,81 +2,125 @@
 <html lang="bn">
 <head>
   <meta charset="UTF-8">
-  <title data-i18n="app_title">আয়-ব্যায়</title>
+  <title>আয়-ব্যয় ২০২৬</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0f9d58">
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f9d58">
+  <link rel="icon" href="data:,">
+  
+  <link rel="stylesheet" href="cdnjs.cloudflare.com"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="fonts.googleapis.com" rel="stylesheet">
 </head>
 <body>
 
-<select id="language-select">
-  <option value="bn">বাংলা</option>
-  <option value="en">English</option>
-  <option value="ar">عربي</option>
-</select>
-
-<h2 data-i18n="monthly_summary"></h2>
-
-<div class="container">
-
-  <!-- আয় -->
-  <div class="box">
-    <h3 data-i18n="income"></h3>
-    <input id="incomeTitle" type="text" data-placeholder-i18n="income">
-    <input id="incomeAmount" type="number" min="1" placeholder="৳">
-    <button id="addIncomeBtn" data-i18n="add_income"></button>
-
-    <ul id="incomeList"></ul>
-
-    <h4>
-      <span data-i18n="total_income"></span>
-      <span id="totalIncome">0</span>
-    </h4>
+<div class="menu-container">
+  <button id="menuBtn" class="menu-dot-btn">☰</button>
+  <div id="menuDropdown" class="menu-content">
+    <div class="menu-item">
+      <label>ডার্ক মোড:</label>
+      <input type="checkbox" id="darkModeToggle">
+    </div>
+    <hr>
+    <div class="menu-item">
+      <label data-i18n="language">ভাষা:</label>
+      <select id="language-select">
+        <option value="bn">বাংলা</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+    <div class="menu-item">
+      <label data-i18n="calendar">ক্যালেন্ডার:</label>
+      <select id="calendar-select">
+        <option value="gregory">ইংরেজি মাস</option>
+        <option value="islamic-ummalqura">আরবি মাস</option>
+      </select>
+    </div>
+    <hr>
+    <button id="exportBtn" class="menu-action-btn">ব্যাকআপ (Export)</button>
+    <button id="importBtn" class="menu-action-btn">রিস্টোর (Import)</button>
+    <input type="file" id="importFile" style="display:none" accept=".json">
   </div>
-
-  <!-- খরচ -->
-  <div class="box">
-    <h3 data-i18n="expense"></h3>
-    <input id="expenseTitle" type="text" data-placeholder-i18n="expense">
-    <input id="expenseAmount" type="number" min="1" placeholder="৳">
-    <button id="addExpenseBtn" data-i18n="add_expense"></button>
-
-    <ul id="expenseList"></ul>
-
-    <h4>
-      <span data-i18n="total_expense"></span>
-      <span id="totalExpense">0</span>
-    </h4>
-  </div>
-
 </div>
 
-<h2>
-  <span data-i18n="current_balance"></span>
-  <span id="balance">0</span>
-</h2>
+<h2 id="currentMonthDisplay" class="animate__animated animate__fadeInDown" style="text-align: center; margin-top: 60px;"></h2>
 
-<button id="endMonthBtn" data-i18n="end_month"></button>
-<button id="toggleHistoryBtn" data-i18n="view_history"></button>
+<div class="box statistics-box animate__animated animate__fadeInUp">
+  <h3 style="margin-top:0">পরিসংখ্যান ২০২৬</h3>
+  <div class="stats-grid">
+    <div class="stat-item" id="dailyStatBtn">
+      <span>দৈনিক খরচ</span>
+      <strong id="dailyStat">৳ ০</strong>
+    </div>
+    <div class="stat-item" id="monthlyStatBtn">
+      <span>মাসিক খরচ</span>
+      <strong id="monthlyStat">৳ ০</strong>
+    </div>
+    <div class="stat-item" id="yearlyStatBtn">
+      <span>বার্ষিক খরচ</span>
+      <strong id="yearlyStat">৳ ০</strong>
+    </div>
+  </div>
+</div>
 
-<div id="history" style="display:none">
-  <h3 data-i18n="history"></h3>
+<div id="chartContainer" class="box animate__animated animate__zoomIn" style="display:none;">
+  <h3 id="chartTitle">খরচের চার্ট</h3>
+  <canvas id="expenseChart"></canvas>
+  <button onclick="document.getElementById('chartContainer').style.display='none'" style="background:#5f6368; margin-top:10px; color:white;">বন্ধ করুন</button>
+</div>
+
+<div class="container">
+  <div class="box animate__animated animate__fadeInUp">
+    <h3>আয়</h3>
+    <input id="incomeTitle" type="text" placeholder="আয়ের উৎস">
+    <input id="incomeAmount" type="number" placeholder="৳" inputmode="decimal">
+    <button id="addIncomeBtn">আয় যোগ</button>
+    <ul id="incomeList"></ul>
+    <h4>মোট আয়: <span id="totalIncome">০</span></h4>
+  </div>
+
+  <div class="box animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
+    <h3>খরচ</h3>
+    <input id="expenseTitle" type="text" placeholder="খরচের খাত">
+    <input id="expenseAmount" type="number" placeholder="৳" inputmode="decimal">
+    <button id="addExpenseBtn">খরচ যোগ</button>
+    <ul id="expenseList"></ul>
+    <h4>মোট খরচ: <span id="totalExpense">০</span></h4>
+  </div>
+</div>
+
+<div class="box balance-box animate__animated animate__bounceIn" style="animation-delay: 0.2s;">
+  <h2>ব্যালেন্স: <span id="balance">০</span></h2>
+</div>
+
+<div class="footer-btns animate__animated animate__fadeInUp">
+  <button id="endMonthBtn">মাস শেষ</button>
+  <button id="toggleHistoryBtn">হিস্টোরি</button>
+</div>
+
+<div id="history" style="display:none" class="box animate__animated animate__fadeIn">
+  <h3 style="text-align: center;">পুরনো রেকর্ড</h3>
   <ul id="historyList"></ul>
 </div>
 
+<script src="cdn.jsdelivr.net"></script>
 <script src="i18n.js"></script>
 <script src="script.js"></script>
-
 <script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/service-worker.js")
-        .then(reg => console.log("Service Worker registered", reg))
-        .catch(err => console.error("SW registration failed", err));
+  const mBtn = document.getElementById("menuBtn");
+  const mDropdown = document.getElementById("menuDropdown");
+  if(mBtn) {
+    mBtn.onclick = (e) => { e.stopPropagation(); mDropdown.classList.toggle("show"); };
+    document.onclick = () => mDropdown.classList.remove("show");
+    mDropdown.onclick = (e) => e.stopPropagation();
+  }
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js').catch(err => console.log(err));
     });
   }
 </script>
-
 </body>
 </html>

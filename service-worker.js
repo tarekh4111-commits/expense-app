@@ -1,39 +1,22 @@
-const CACHE_NAME = "expense-v3";
+const CACHE_NAME = "expense-v2026-vDark-Mode-R1";
+// ... বাকি কোড একই থাকবে ...
 
-self.addEventListener("install", event => {
+const ASSETS = ["./", "./index.html", "./style.css", "./script.js", "./i18n.js", "./manifest.json", "./icon-192.png"];
+
+self.addEventListener("install", e => {
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache =>
-      cache.addAll([
-        "./",
-        "./index.html",
-        "./style.css",
-        "./script.js",
-        "./manifest.json"
-      ])
-    )
-  );
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
 });
 
-self.addEventListener("activate", event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.map(key => key !== CACHE_NAME ? caches.delete(key) : null)
-      )
-    )
-  );
+self.addEventListener("activate", e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => k !== CACHE_NAME && caches.delete(k)))));
 });
 
-self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return; // Only cache GET
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        let clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
+self.addEventListener("fetch", e => {
+  if (e.request.method !== "GET") return;
+  e.respondWith(fetch(e.request).then(res => {
+    const clone = res.clone();
+    caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+    return res;
+  }).catch(() => caches.match(e.request)));
 });

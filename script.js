@@ -1,133 +1,144 @@
-let totalIncome = 0;
-let totalExpense = 0;
-
-const incomeList = document.getElementById("incomeList");
-const expenseList = document.getElementById("expenseList");
-const totalIncomeSpan = document.getElementById("totalIncome");
-const totalExpenseSpan = document.getElementById("totalExpense");
-const balanceSpan = document.getElementById("balance");
-const historyList = document.getElementById("historyList");
-const historyDiv = document.getElementById("history");
-
-const incomeTitle = document.getElementById("incomeTitle");
-const incomeAmount = document.getElementById("incomeAmount");
-const expenseTitle = document.getElementById("expenseTitle");
-const expenseAmount = document.getElementById("expenseAmount");
-
 let currentIncomeData = JSON.parse(localStorage.getItem("currentIncomeData")) || [];
 let currentExpenseData = JSON.parse(localStorage.getItem("currentExpenseData")) || [];
 let historyData = JSON.parse(localStorage.getItem("monthlyHistory")) || [];
+let currentCalendar = localStorage.getItem("calendarType") || "gregory";
+let myChart = null;
 
-/* ===== বাংলা সংখ্যা ফরম্যাট (২০২৬ আপডেট অনুযায়ী) ===== */
-function toBn(num) {
-  return num.toString().replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
+function formatCurrency(num) {
+    const lang = localStorage.getItem("lang") || "bn";
+    return new Intl.NumberFormat(lang === 'bn' ? 'bn-BD' : 'en-US', { style: 'currency', currency: 'BDT' }).format(num);
 }
 
-/* ===== হিসাব আপডেট ===== */
-function calculateTotals() {
-  totalIncome = currentIncomeData.reduce((sum, item) => sum + Number(item.amount), 0);
-  totalExpense = currentExpenseData.reduce((sum, item) => sum + Number(item.amount), 0);
+function updateDisplay() {
+    const lang = localStorage.getItem("lang") || "bn";
+    const today = new Date();
+    const displayEl = document.getElementById("currentMonthDisplay");
 
-  totalIncomeSpan.textContent = toBn(totalIncome);
-  totalExpenseSpan.textContent = toBn(totalExpense);
-  balanceSpan.textContent = toBn(totalIncome - totalExpense);
+    if (currentCalendar === "islamic-ummalqura") {
+        const locale = (lang === 'bn') ? 'bn-BD' : 'en-US';
+        const parts = new Intl.DateTimeFormat(locale + '-u-ca-islamic-umalqura', {day:'numeric', month:'long', year:'numeric'}).formatToParts(today);
+        const d = parts.find(p => p.type === 'day').value;
+        const m = parts.find(p => p.type === 'month').value;
+        const y = parts.find(p => p.type === 'year').value;
+        displayEl.textContent = lang === "bn" ? `${d} ${m} ${y} হিজরি` : `${d} ${m} ${y} AH`;
+    } else {
+        displayEl.textContent = new Intl.DateTimeFormat(lang === 'bn' ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }).format(today);
+    }
+
+    renderList("income", currentIncomeData, "incomeList");
+    renderList("expense", currentExpenseData, "expenseList");
+
+    const totalIn = currentIncomeData.reduce((s, i) => s + i.amount, 0);
+    const totalEx = currentExpenseData.reduce((s, i) => s + i.amount, 0);
+
+    document.getElementById("totalIncome").textContent = formatCurrency(totalIn);
+    document.getElementById("totalExpense").textContent = formatCurrency(totalEx);
+    document.getElementById("balance").textContent = formatCurrency(totalIn - totalEx);
+    calculateStats();
 }
 
-/* ===== মাসিক ডাটা লোড ===== */
-function loadMonth() {
-  incomeList.innerHTML = "";
-  expenseList.innerHTML = "";
-
-  currentIncomeData.forEach(item => {
-    const li = document.createElement("li");
-    // এখানে ব্যাকটিক (`) ব্যবহার করা হয়েছে
-    li.textContent = `${item.title} - ৳${toBn(item.amount)}`;
-    incomeList.appendChild(li);
-  });
-
-  currentExpenseData.forEach(item => {
-    const li = document.createElement("li");
-    // এখানে ব্যাকটিক (`) ব্যবহার করা হয়েছে
-    li.textContent = `${item.title} - ৳${toBn(item.amount)}`;
-    expenseList.appendChild(li);
-  });
-
-  calculateTotals();
+function renderList(type, data, elementId) {
+    document.getElementById(elementId).innerHTML = data.map((item, idx) => `
+        <li><span>${item.title}: <strong>${formatCurrency(item.amount)}</strong></span>
+        <div class="action-btns"><button onclick="editEntry('${type}', ${idx})" class="edit-btn">✎</button>
+        <button onclick="deleteEntry('${type}', ${idx})" class="delete-btn">🗑️</button></div></li>`).join("");
 }
 
-/* ===== আয়/খরচ যোগ ===== */
 function addEntry(type) {
-  const titleInput = type === "income" ? incomeTitle : expenseTitle;
-  const amountInput = type === "income" ? incomeAmount : expenseAmount;
-  const data = type === "income" ? currentIncomeData : currentExpenseData;
-
-  if (!titleInput.value || Number(amountInput.value) <= 0) {
-    alert("দয়া করে সঠিক নাম এবং ০ এর বেশি টাকা লিখুন");
-    return;
-  }
-
-  data.push({ title: titleInput.value, amount: Number(amountInput.value) });
-  
-  localStorage.setItem(
-    type === "income" ? "currentIncomeData" : "currentExpenseData",
-    JSON.stringify(data)
-  );
-
-  titleInput.value = "";
-  amountInput.value = "";
-
-  loadMonth();
+    const t = document.getElementById(type + "Title"), a = document.getElementById(type + "Amount");
+    const v = parseFloat(a.value);
+    if (!t.value || isNaN(v)) return;
+    const data = type === "income" ? currentIncomeData : currentExpenseData;
+    data.push({ title: t.value, amount: v, date: new Date().toISOString().split('T')[0] });
+    saveAndRefresh();
+    t.value = ""; a.value = "";
 }
+
+function calculateStats() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const daily = currentExpenseData.filter(i => i.date === todayStr).reduce((s, i) => s + i.amount, 0);
+    const monthly = currentExpenseData.reduce((s, i) => s + i.amount, 0);
+    const yearly = historyData.reduce((s, i) => s + i.expense, 0) + monthly;
+
+    if(document.getElementById("dailyStat")) document.getElementById("dailyStat").textContent = formatCurrency(daily);
+    if(document.getElementById("monthlyStat")) document.getElementById("monthlyStat").textContent = formatCurrency(monthly);
+    if(document.getElementById("yearlyStat")) document.getElementById("yearlyStat").textContent = formatCurrency(yearly);
+}
+
+function showChart(title, labels, data, type) {
+    document.getElementById("chartContainer").style.display = "block";
+    document.getElementById("chartTitle").textContent = title;
+    if (myChart) myChart.destroy();
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    myChart = new Chart(ctx, {
+        type: type,
+        data: { labels: labels, datasets: [{ label: 'খরচ', data: data, backgroundColor: 'rgba(15, 157, 88, 0.5)', borderColor: '#0f9d58', borderWidth: 2 }] }
+    });
+}
+
+document.getElementById("monthlyStatBtn").onclick = () => {
+    const dailyData = {};
+    currentExpenseData.forEach(i => dailyData[i.date] = (dailyData[i.date] || 0) + i.amount);
+    showChart("দৈনিক খরচ বিশ্লেষণ", Object.keys(dailyData), Object.values(dailyData), 'bar');
+};
+
+document.getElementById("yearlyStatBtn").onclick = () => {
+    const monthlyData = {};
+    historyData.forEach(i => monthlyData[i.month] = i.expense);
+    showChart("মাসিক খরচ বিশ্লেষণ", Object.keys(monthlyData), Object.values(monthlyData), 'line');
+};
+
+function saveAndRefresh() {
+    localStorage.setItem("currentIncomeData", JSON.stringify(currentIncomeData));
+    localStorage.setItem("currentExpenseData", JSON.stringify(currentExpenseData));
+    updateDisplay();
+}
+
+function editEntry(type, idx) {
+    const data = type === "income" ? currentIncomeData : currentExpenseData;
+    const nt = prompt("নাম সংশোধন:", data[idx].title), na = prompt("পরিমাণ সংশোধন:", data[idx].amount);
+    if(nt && na) { data[idx].title = nt; data[idx].amount = parseFloat(na); saveAndRefresh(); }
+}
+
+function deleteEntry(type, idx) {
+    if(confirm("ডিলিট করবেন?")) { (type === "income" ? currentIncomeData : currentExpenseData).splice(idx, 1); saveAndRefresh(); }
+}
+
+const dmToggle = document.getElementById("darkModeToggle");
+function applyDM(isDark) {
+    document.body.classList.toggle("dark-mode", isDark);
+    localStorage.setItem("darkMode", isDark);
+    if(dmToggle) dmToggle.checked = isDark;
+}
+applyDM(localStorage.getItem("darkMode") === "true");
+if(dmToggle) dmToggle.onchange = (e) => applyDM(e.target.checked);
+
+document.getElementById("toggleHistoryBtn").onclick = () => {
+    const h = document.getElementById("history");
+    h.style.display = h.style.display === "none" ? "block" : "none";
+    updateHistoryUI();
+};
+
+function updateHistoryUI() {
+    document.getElementById("historyList").innerHTML = historyData.map((i, idx) => `
+        <li><span><strong>${i.month}</strong><br>আয়: ${formatCurrency(i.income)} | খরচ: ${formatCurrency(i.expense)}</span>
+        <div class="action-btns"><button onclick="deleteHistory(${idx})" class="delete-btn">🗑️</button></div></li>`).join("");
+}
+
+function deleteHistory(idx) { if(confirm("মুছবেন?")) { historyData.splice(idx,1); localStorage.setItem("monthlyHistory", JSON.stringify(historyData)); updateHistoryUI(); calculateStats(); } }
+
+document.getElementById("endMonthBtn").onclick = () => {
+    if(confirm("মাস ক্লোজ করবেন?")) {
+        historyData.push({ month: document.getElementById("currentMonthDisplay").textContent, income: currentIncomeData.reduce((s,i)=>s+i.amount,0), expense: currentExpenseData.reduce((s,i)=>s+i.amount,0) });
+        localStorage.setItem("monthlyHistory", JSON.stringify(historyData));
+        currentIncomeData = []; currentExpenseData = [];
+        saveAndRefresh();
+    }
+};
 
 document.getElementById("addIncomeBtn").onclick = () => addEntry("income");
 document.getElementById("addExpenseBtn").onclick = () => addEntry("expense");
+document.getElementById("language-select").onchange = (e) => { localStorage.setItem("lang", e.target.value); location.reload(); };
+document.getElementById("calendar-select").onchange = (e) => { currentCalendar = e.target.value; localStorage.setItem("calendarType", currentCalendar); updateDisplay(); };
 
-/* ===== মাস শেষ (২০২৬ সালের ডাটা সেভ হবে) ===== */
-function endMonth() {
-  if (currentIncomeData.length === 0 && currentExpenseData.length === 0) {
-    alert("সেভ করার মতো কোনো ডাটা নেই!");
-    return;
-  }
-
-  historyData.push({
-    month: new Date().toLocaleString("bn-BD", { month: "long", year: "numeric" }),
-    income: totalIncome,
-    expense: totalExpense,
-    balance: totalIncome - totalExpense
-  });
-
-  localStorage.setItem("monthlyHistory", JSON.stringify(historyData));
-  localStorage.removeItem("currentIncomeData");
-  localStorage.removeItem("currentExpenseData");
-
-  currentIncomeData = [];
-  currentExpenseData = [];
-
-  loadMonth();
-  alert("এই মাসের হিসাব সংরক্ষণ হয়েছে ✅");
-}
-
-document.getElementById("endMonthBtn").onclick = endMonth;
-
-/* ===== হিস্টোরি দেখানো ===== */
-function renderHistory() {
-  historyList.innerHTML = "";
-  [...historyData].reverse().forEach(item => {
-    const li = document.createElement("li");
-    // এখানে ব্যাকটিক (`) ব্যবহার করা হয়েছে
-    li.textContent = `${item.month} | আয়: ৳${toBn(item.income)} | খরচ: ৳${toBn(item.expense)} | ব্যালেন্স: ৳${toBn(item.balance)}`;
-    historyList.appendChild(li);
-  });
-}
-
-document.getElementById("toggleHistoryBtn").onclick = () => {
-  if (historyDiv.style.display === "none" || historyDiv.style.display === "") {
-    historyDiv.style.display = "block";
-    renderHistory();
-  } else {
-    historyDiv.style.display = "none";
-  }
-};
-
-/* ===== প্রথমে লোড হবে জানুয়ারি ২০২৬-এর জন্য ===== */
-loadMonth();
+updateDisplay();
